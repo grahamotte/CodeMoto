@@ -2,6 +2,8 @@
 
 `mise manager:sync` (also available as `mise manager:linear_sync`) reconciles the configured Linear team's workflow, labels, and Git automations. It creates the manager's runner, model, and variant labels and deletes labels outside the managed set, including shared workspace labels returned for the team. Deleting a shared label removes it from cards across the workspace. Labels owned by other teams are left alone. Run sync before triggering cards.
 
+Manually managed teams, such as ME, can use the same columns: Backlog, Planned, Ready, Working, Review, Approved, Completed, and Canceled, in that order. Match the categories and colors in `Linear::STATUSES` in `manager/lib/linear.rb`, preserving existing state IDs and issue assignments. Linear's reserved Duplicate state remains. Matching the workflow does not require adding a repository to `manager:linear_syncall` or configuring manager labels and automations.
+
 Cards can override the defaults in `config.json` using these labels:
 
 - `runner: openchamber`, `runner: t3`, or `runner: interactive`
