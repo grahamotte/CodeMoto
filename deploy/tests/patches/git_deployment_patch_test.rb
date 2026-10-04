@@ -38,7 +38,7 @@ class GitDeploymentPatchTest < Minitest::Test
 
     assert_includes local, "ssh-keygen -R 1.2.3.4"
     assert_includes local, "ssh-keyscan -H 1.2.3.4 >> ~/.ssh/known_hosts"
-    assert local.any? { |command| command.include?("git clone --bare #{Constants.local_root}") }
+    assert_includes local, "git clone --bare --no-local #{Constants.local_root} #{Constants.local_git_dir}"
     assert remote.any? { |command| command == "git clone #{Constants.remote_git_dir} #{Constants.remote_root}" }
   end
 

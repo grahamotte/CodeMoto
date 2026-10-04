@@ -8,7 +8,7 @@ class GitDeploymentPatch < BasePatch
         Cmd.local("rm -rf #{Constants.local_git_dir}")
         Cmd.ssh("rm -rf #{Constants.remote_git_dir}")
 
-        Cmd.local("git clone --bare #{Constants.local_root} #{Constants.local_git_dir}")
+        Cmd.local("git clone --bare --no-local #{Constants.local_root} #{Constants.local_git_dir}")
         Cmd.local("rsync -av -e \"ssh -i #{Constants.ssh_key_path}\" #{Constants.local_git_dir}/ #{Constants.deploy_user}@#{Instance.ip}:#{Constants.remote_git_dir}/")
 
         Cmd.local("rm -rf #{Constants.local_git_dir}")
