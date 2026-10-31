@@ -15,6 +15,27 @@ export const parsedToken = () => {
   }
 };
 
+export const currentUser = () => {
+  const t = parsedToken();
+  if (!t?.user_id) return null;
+
+  return { id: t.user_id as string, email: t.email as string };
+};
+
+type ReqHandlers = {
+  onError: (error: unknown) => void;
+  onUnauthorized: () => void;
+};
+
+const handlers: ReqHandlers = {
+  onError: () => undefined,
+  onUnauthorized: () => undefined,
+};
+
+export const configureReq = (overrides: Partial<ReqHandlers>) => {
+  Object.assign(handlers, overrides);
+};
+
 export const req = async <T extends z.ZodSchema<any>>({
   method,
   url,
@@ -31,7 +52,6 @@ export const req = async <T extends z.ZodSchema<any>>({
   headers?: any;
 }) => {
   type InferFromSchema<T extends z.ZodSchema<any>> = z.infer<T>;
-  let responseData;
   params ||= {};
   try {
     const requestUrl = new URL(url, import.meta.env.VITE_API_URL || window.location.origin);
@@ -57,48 +77,53 @@ export const req = async <T extends z.ZodSchema<any>>({
       body,
     });
     const responseText = await response.text();
-    responseData = responseText ? JSON.parse(responseText) : null;
+    const responseData = responseText ? JSON.parse(responseText) : null;
 
     const refreshToken = response.headers.get("refresh-token");
     if (refreshToken) localStorage.setItem("jwt", refreshToken);
 
-    if (response.status === 401) void logout();
-    if (!response.ok)
-      throw new Error(`Request failed with status code ${response.status}`);
-
-    console.log(url, params, responseData);
+    if (response.status === 401) {
+      await logout();
+      handlers.onUnauthorized();
+    }
+    if (!response.ok) {
+      const error = new Error(`Request failed with status code ${response.status}`);
+      Object.assign(error, {
+        response: {
+          data: changeKeys.camelCase(responseData, 999),
+          status: response.status,
+        },
+      });
+      throw error;
+    }
 
     return (schema || z.any()).parse(
       changeKeys.camelCase(responseData, 999),
     ) as InferFromSchema<T>;
   } catch (e) {
-    console.log(url, params, responseData);
-    console.log(e);
+    handlers.onError(e);
     throw e;
   }
 };
 
 export const login = ({
-  handle,
+  email,
   password,
 }: {
-  handle: string;
+  email: string;
   password: string;
 }) => {
   return req({
     method: "post",
     url: "/users/jwt",
-    data: { handle: handle, password: password },
-    schema: z.any(),
+    data: { email, password },
+    schema: z.object({ token: z.string() }),
   }).then((data) => {
     localStorage.setItem("jwt", data.token);
   });
 };
 
 export const logout = () => {
-  return new Promise((r: any) => {
-    localStorage.removeItem("jwt");
-    void req({ url: "/users/logout", schema: z.any() });
-    r();
-  });
+  localStorage.removeItem("jwt");
+  return Promise.resolve();
 };
