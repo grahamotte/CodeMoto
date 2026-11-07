@@ -60,6 +60,15 @@ class AppsTest < Minitest::Test
     refute Apps.mr_installed?
   end
 
+  def test_brew_installed_checks_path
+    refute Apps.brew_installed?
+    brew = File.join(@publish_test_dir, "bin", "brew")
+    File.write(brew, "")
+    File.chmod(0755, brew)
+
+    assert Apps.brew_installed?
+  end
+
   def test_loads_skip_app_stores
     Apps.config[:skip_app_stores] = true
 

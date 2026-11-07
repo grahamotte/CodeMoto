@@ -68,7 +68,11 @@ module Apps
         .max_by { |version| Gem::Version.new(version) }
     end
 
-    def mr_installed? = ENV["PATH"].to_s.split(File::PATH_SEPARATOR).any? { |directory| File.executable?(File.join(directory, "mr")) }
+    def mr_installed? = executable?("mr")
+
+    def brew_installed? = executable?("brew")
+
+    def executable?(name) = ENV["PATH"].to_s.split(File::PATH_SEPARATOR).any? { |directory| File.executable?(File.join(directory, name)) }
 
     def project_path(target)
       File.expand_path(target.fetch(:project), Constants.local_root)

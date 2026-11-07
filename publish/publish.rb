@@ -12,3 +12,4 @@ Apps::RevisionPatch.call
 Apps::CaskPatch.call
 Apps::UploadPatch.call
 Apps::SubmitPatch.call
+Apps::BrewUpgradePatch.call

@@ -24,7 +24,7 @@ Add an optional `homebrew` object to the `apps` section of `config.json` to publ
 }
 ```
 
-After the macOS release is uploaded, `mise publish` writes a cask named after the app (`App Name` becomes `app-name`), with the release version, the uploaded zip's SHA-256, its GitHub release download URL from `githubRepo`, `marketingUrl` as the homepage, `macos` as the minimum Homebrew macOS name, and the optional `zap` paths. Mr. Moto's `mr cask` commits it to `Casks/` in the workspace tap, `grahamotte/homebrew-tap`, only when it changed, so users install with `brew install grahamotte/tap/app-name` and update with `brew upgrade`. The cask never points at a version before its release is published.
+After the macOS release is uploaded, `mise publish` writes a cask named after the app (`App Name` becomes `app-name`), with the release version, the uploaded zip's SHA-256, its GitHub release download URL from `githubRepo`, `marketingUrl` as the homepage, `macos` as the minimum Homebrew macOS name, and the optional `zap` paths. Mr. Moto's `mr cask` commits it to `Casks/` in the workspace tap, `grahamotte/homebrew-tap`, only when it changed, so users install with `brew install grahamotte/tap/app-name` and update with `brew upgrade`. The cask never points at a version before its release is published. When the publishing Mac has the cask installed, `mise publish` finishes by running `brew update` and `brew upgrade --cask` for it, and quits and reopens the app if it was running.
 
 ## App Review attachments
 

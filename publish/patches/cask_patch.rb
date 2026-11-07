@@ -14,6 +14,8 @@ module Apps
         Bundler.with_unbundled_env { Cmd.local(command) }
       end
 
+      def token = Apps.config.fetch(:name).downcase.gsub(/[^a-z0-9]+/, "-").sub(/\A-/, "").sub(/-\z/, "")
+
       private
 
       def cask
@@ -52,8 +54,6 @@ module Apps
       end
 
       def target = Apps.targets.find { |item| item.fetch(:platform) == "MAC_OS" }
-
-      def token = Apps.config.fetch(:name).downcase.gsub(/[^a-z0-9]+/, "-").sub(/\A-/, "").sub(/-\z/, "")
 
       def homepage
         url = Apps.config.fetch(:marketingUrl)
