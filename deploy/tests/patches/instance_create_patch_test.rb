@@ -20,15 +20,9 @@ class InstanceCreatePatchTest < Minitest::Test
     Req.expects(:call).with(has_entries(method: :get, url: "https://api.digitalocean.com/v2/droplets"))
       .returns(droplets: [ active_instance ])
     Cmd.expects(:ssh).with("echo !ass!tits!", user: "root").returns("!ass!tits!")
-    commands = []
-    Cmd.stubs(:local).with { |command, *| commands << command; true }
+    Cmd.expects(:local).never
 
     InstanceCreatePatch.apply
-
-    assert_includes commands, "ssh-keygen -R 1.2.3.4"
-    assert_includes commands, "ssh-keygen -R example.com"
-    assert_includes commands, "ssh-keyscan -H 1.2.3.4 >> ~/.ssh/known_hosts"
-    assert_includes commands, "ssh-keyscan -H example.com >> ~/.ssh/known_hosts"
   end
 
   def test_instance_ready_handles_ssh_failure

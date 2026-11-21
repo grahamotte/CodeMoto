@@ -13,14 +13,6 @@ class InstanceCreatePatch < BasePatch
         break if instance_ready?
         sleep 4
       end
-
-      Cmd.local("ssh-keygen -R #{Instance.ip}")
-      Cmd.local("ssh-keygen -R #{Constants.domain}")
-      begin
-        Cmd.local("ssh-keyscan -H #{Instance.ip} >> ~/.ssh/known_hosts")
-        Cmd.local("ssh-keyscan -H #{Constants.domain} >> ~/.ssh/known_hosts")
-      rescue StandardError
-      end
     end
 
     private

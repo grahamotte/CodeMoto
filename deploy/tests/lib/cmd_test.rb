@@ -89,6 +89,53 @@ class CmdTest < Minitest::Test
     refute channel.eof
   end
 
+  def test_ssh_pins_the_host_key_by_default
+    channel = FakeChannel.new([ [ :data, "ok" ] ], 0)
+    Req.stubs(:call).returns(
+      droplets: [ { name: "example.com", networks: { v4: [ { type: "public", ip_address: "203.0.113.1" } ] } } ],
+    )
+    Net::SSH.expects(:start)
+      .with(
+        "203.0.113.1",
+        "deploy",
+        keys: [ Constants.ssh_key_path ],
+        keys_only: true,
+        verify_host_key: :always,
+        host_key_alias: "example.com",
+        user_known_hosts_file: [ Constants.ssh_known_hosts_path ],
+        global_known_hosts_file: [],
+      )
+      .yields(FakeSession.new(channel))
+
+    DeployTestMethods::CMD_SSH.call("ls", quiet: true)
+
+    assert_equal "example.com #{DeployTestHostKey.public_key}\n", File.read(Constants.ssh_known_hosts_path)
+  end
+
+  def test_ssh_can_verify_against_the_operator_known_hosts
+    channel = FakeChannel.new([ [ :data, "ok" ] ], 0)
+    Req.stubs(:call).returns(
+      droplets: [ { name: "example.com", networks: { v4: [ { type: "public", ip_address: "203.0.113.1" } ] } } ],
+    )
+    Net::SSH.expects(:start)
+      .with("203.0.113.1", "deploy", keys: [ Constants.ssh_key_path ], keys_only: true, verify_host_key: :always)
+      .yields(FakeSession.new(channel))
+
+    DeployTestMethods::CMD_SSH.call("ls", quiet: true, host_key: :known_hosts)
+  end
+
+  def test_ssh_options_pin_the_host_key_for_the_ssh_client
+    options = Cmd.ssh_options
+
+    assert_equal [ "-i", Constants.ssh_key_path ], options.first(2)
+    assert_includes options, "StrictHostKeyChecking=yes"
+    assert_includes options, "UserKnownHostsFile=#{Constants.ssh_known_hosts_path}"
+    assert_includes options, "GlobalKnownHostsFile=/dev/null"
+    assert_includes options, "HostKeyAlias=example.com"
+    assert_includes options, "IdentitiesOnly=yes"
+    assert_equal Shellwords.join([ "ssh", *options ]), Cmd.ssh_command
+  end
+
   def test_ssh_write_streams_content_over_stdin_and_skips_unchanged
     Cmd.expects(:ssh).with("tee ? > /dev/null", "/etc/app.env", user: "deploy", stdin: "SECRET=1\n").once
 
@@ -169,7 +216,7 @@ class CmdTest < Minitest::Test
       droplets: [ { name: "example.com", networks: { v4: [ { type: "public", ip_address: "203.0.113.1" } ] } } ],
     )
     Net::SSH.expects(:start)
-      .with("203.0.113.1", "deploy", keys: [ Constants.ssh_key_path ], keys_only: true)
+      .with("203.0.113.1", "deploy", has_entries(keys: [ Constants.ssh_key_path ], keys_only: true, verify_host_key: :always))
       .yields(FakeSession.new(channel))
     channel
   end

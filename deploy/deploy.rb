@@ -2,6 +2,7 @@ require_relative "lib/require"
 
 if Subdomains.droplet?
   InstanceCreatePatch.call
+  HostKeyPatch.call
   DeployUserPatch.call
   SwapPatch.call
   HistoryPatch.call

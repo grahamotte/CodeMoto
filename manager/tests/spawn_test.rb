@@ -35,6 +35,7 @@ class SpawnTestCredentials
       "DEPLOY_SSH_KEY_PUB" => "public-key-#{@calls}",
       "DEPLOY_SSH_KEY_FINGERPRINT" => "fingerprint-#{@calls}",
       "DEPLOY_SSH_KEY_BASE64" => [ "private-key-#{@calls}\nsecond-line\n" ].pack("m0"),
+      "DEPLOY_SSH_KEY_HOST_BASE64" => [ "host-key-#{@calls}\n" ].pack("m0"),
       "JWT_SECRET" => "jwt-#{@calls}",
       "SECRET_KEY_BASE" => "secret-#{@calls}",
       "CRYPT_KEY" => "crypt-#{@calls}",
@@ -45,13 +46,22 @@ class SpawnTestCredentials
 end
 
 class SpawnCredentialsTestShell
-  attr_reader :command
+  attr_reader :commands
+
+  def initialize
+    @commands = []
+  end
 
   def run(*command, chdir: nil)
-    @command = command
+    @commands << command
     private_key_path = command.fetch(command.index("-f") + 1)
-    File.write(private_key_path, "private-key\n")
-    File.write("#{private_key_path}.pub", "ssh-rsa #{[ "public-key" ].pack("m0")} deploy@test\n")
+    if command.include?("ed25519")
+      File.write(private_key_path, "host-key\n")
+      File.write("#{private_key_path}.pub", "ssh-ed25519 #{[ "host-public-key" ].pack("m0")}\n")
+    else
+      File.write(private_key_path, "private-key\n")
+      File.write("#{private_key_path}.pub", "ssh-rsa #{[ "public-key" ].pack("m0")} deploy@test\n")
+    end
   end
 end
 
@@ -84,8 +94,11 @@ class SpawnCredentialsTest < Minitest::Test
     assert_equal "ssh-rsa #{[ "public-key" ].pack("m0")} deploy@test", credentials.fetch("DEPLOY_SSH_KEY_PUB")
     assert_equal Digest::MD5.hexdigest("public-key").scan(/../).join(":"), credentials.fetch("DEPLOY_SSH_KEY_FINGERPRINT")
     assert_equal "private-key\n", credentials.fetch("DEPLOY_SSH_KEY_BASE64").unpack1("m0")
-    assert_includes shell.command, "4096"
-    assert_includes shell.command, "PEM"
+    assert_equal "host-key\n", credentials.fetch("DEPLOY_SSH_KEY_HOST_BASE64").unpack1("m0")
+    assert_equal 2, shell.commands.length
+    assert_includes shell.commands.first, "4096"
+    assert_includes shell.commands.first, "PEM"
+    assert_equal %w[ssh-keygen -t ed25519 -N] + [ "", "-C", "" ], shell.commands.last.first(7)
   end
 end
 
@@ -145,6 +158,7 @@ class SpawnerTest < Minitest::Test
     refute_equal development.fetch("JWT_SECRET"), production.fetch("JWT_SECRET")
     assert_equal "public-key-2", production.fetch("DEPLOY_SSH_KEY_PUB")
     assert_equal "fingerprint-2", production.fetch("DEPLOY_SSH_KEY_FINGERPRINT")
+    assert_equal "host-key-2\n", production.fetch("DEPLOY_SSH_KEY_HOST_BASE64").unpack1("m0")
     assert_equal "deploy", production.fetch("DEPLOY_USER")
     refute config.key?("deploy")
     assert_includes @shell.commands, [ %w[git remote set-url origin git@github.com:grahamotte/NewApp.git], target_dir ]

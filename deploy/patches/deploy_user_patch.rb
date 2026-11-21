@@ -38,10 +38,9 @@ class DeployUserPatch < BasePatch
       Cmd.ssh("systemctl restart ssh", user: "root")
     end
 
-    private
-
     def sshd_conf
       <<~TEXT
+        HostKey /etc/ssh/ssh_host_ed25519_key
         PermitRootLogin no
         AuthorizedKeysFile .ssh/authorized_keys
         PasswordAuthentication no

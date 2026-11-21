@@ -54,10 +54,22 @@ class InstanceTest < Minitest::Test
         image: 1,
         size: "test-size",
         ssh_keys: [ 2 ],
+        user_data: Instance.user_data,
       }
     end.returns(id: 3)
 
     assert_equal({ id: 3 }, Instance.create)
+  end
+
+  def test_user_data_installs_the_pinned_host_key
+    user_data = Instance.user_data
+    config = JSON.parse(user_data.delete_prefix("#cloud-config\n"))
+
+    assert user_data.start_with?("#cloud-config\n")
+    assert_equal true, config.fetch("ssh_deletekeys")
+    assert_equal [], config.fetch("ssh_genkeytypes")
+    assert_equal DeployTestHostKey.private_key, config.dig("ssh_keys", "ed25519_private")
+    assert_equal DeployTestHostKey.public_key, config.dig("ssh_keys", "ed25519_public")
   end
 
   def test_destroy

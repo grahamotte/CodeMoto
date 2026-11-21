@@ -27,6 +27,36 @@ Cmd.define_singleton_method(:ssh_write) { |*, **| raise UnsafeTestOperation, "Cm
 Req.define_singleton_method(:call) { |*, **| raise UnsafeTestOperation, "Req.call must be stubbed in deploy tests" }
 Net::SSH.define_singleton_method(:start) { |*, **| raise UnsafeTestOperation, "Net::SSH.start must be stubbed in deploy tests" }
 
+module DeployTestHostKey
+  SEED = ("\x01" * 32).b
+
+  def self.public_bytes = Ed25519::SigningKey.new(SEED).verify_key.to_bytes
+
+  def self.public_key = "ssh-ed25519 #{[ Net::SSH::Buffer.from(:string, "ssh-ed25519", :string, public_bytes).to_s ].pack("m0")}"
+
+  def self.private_key
+    public_blob = Net::SSH::Buffer.from(:string, "ssh-ed25519", :string, public_bytes).to_s
+    private_section = Net::SSH::Buffer.from(
+      :long, 1,
+      :long, 1,
+      :string, "ssh-ed25519",
+      :string, public_bytes,
+      :string, SEED + public_bytes,
+      :string, "",
+    ).to_s
+    private_section += (1..(8 - (private_section.bytesize % 8)) % 8).map(&:chr).join
+    body = "openssh-key-v1\0".b + Net::SSH::Buffer.from(
+      :string, "none",
+      :string, "none",
+      :string, "",
+      :long, 1,
+      :string, public_blob,
+      :string, private_section,
+    ).to_s
+    "-----BEGIN OPENSSH PRIVATE KEY-----\n#{[ body ].pack("m0").scan(/.{1,70}/).join("\n")}\n-----END OPENSSH PRIVATE KEY-----\n"
+  end
+end
+
 {
   "BACKUP_ACCESS_KEY_ID" => "access",
   "BACKUP_BUCKET" => "backups",
@@ -36,6 +66,7 @@ Net::SSH.define_singleton_method(:start) { |*, **| raise UnsafeTestOperation, "N
   "DEPLOY_PASSWORD" => "password",
   "DEPLOY_SSH_KEY_BASE64" => [ "private-key" ].pack("m0"),
   "DEPLOY_SSH_KEY_FINGERPRINT" => "fingerprint",
+  "DEPLOY_SSH_KEY_HOST_BASE64" => [ DeployTestHostKey.private_key ].pack("m0"),
   "DEPLOY_SSH_KEY_PUB" => "public-key",
   "DEPLOY_USER" => "deploy",
   "DIGITAL_OCEAN_TOKEN" => "digital-ocean-token",
@@ -48,6 +79,7 @@ module DeployTestIsolation
     $cache = Cache.new(dir: File.join(@deploy_test_dir, "cache"))
     configure_config_fixture
     Constants.instance_variable_set(:@ssh_key_path, File.join(@deploy_test_dir, "id_rsa"))
+    Constants.instance_variable_set(:@ssh_known_hosts_path, File.join(@deploy_test_dir, "known_hosts"))
     Instance.clear
     Cloudflare.instance_variable_set(:@zone_ids, nil)
     Cloudflare.instance_variable_set(:@account_id, nil)

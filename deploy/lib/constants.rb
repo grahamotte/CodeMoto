@@ -48,6 +48,11 @@ class Constants
     def github_repo = config.fetch(:githubRepo, "")
     def ssh_key = ENV.fetch("DEPLOY_SSH_KEY_BASE64").unpack1("m0")
     def ssh_key_pub = ENV.fetch("DEPLOY_SSH_KEY_PUB")
+    def ssh_host_key = ENV.fetch("DEPLOY_SSH_KEY_HOST_BASE64").unpack1("m0")
+    def ssh_host_key_pub
+      key = Net::SSH::KeyFactory.load_data_private_key(ssh_host_key, nil, false).public_key
+      "#{key.ssh_type} #{[ key.to_blob ].pack("m0")}"
+    end
     def ssh_key_path
       @ssh_key_path ||= begin
         path = File.join(local_root, "deploy", "tmp", "id_rsa")
@@ -56,6 +61,13 @@ class Constants
         File.chmod(0600, path)
         path
       end
+    end
+    def ssh_known_hosts_path
+      path = @ssh_known_hosts_path ||= File.join(local_root, "deploy", "tmp", "known_hosts")
+      FileUtils.mkdir_p(File.dirname(path))
+      File.write(path, "#{domain} #{ssh_host_key_pub}\n", perm: 0600)
+      File.chmod(0600, path)
+      path
     end
   end
 end

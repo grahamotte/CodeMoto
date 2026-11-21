@@ -80,9 +80,22 @@ class Instance
           image: image_id,
           size: Constants.instance_size,
           ssh_keys: [ ssh_key_id ],
+          user_data:,
         },
         quiet: true
       )
+    end
+
+    def user_data
+      config = {
+        ssh_deletekeys: true,
+        ssh_genkeytypes: [],
+        ssh_keys: {
+          ed25519_private: Constants.ssh_host_key,
+          ed25519_public: Constants.ssh_host_key_pub,
+        },
+      }
+      "#cloud-config\n#{JSON.pretty_generate(config)}\n"
     end
 
     def destroy
