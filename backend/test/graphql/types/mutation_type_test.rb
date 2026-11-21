@@ -52,13 +52,41 @@ module Types
       assert_equal "RATE_LIMITED", error.dig("extensions", "code")
     end
 
-    def test_create_token_limits_attempts_per_email
+    def test_create_token_limits_attempts_per_email_and_ip
       User.create!(email: "user@example.com", password: "password123")
-      10.times { |i| create_token(" USER@example.com", "wrong", request: graphql_request(remote_addr: "10.0.0.#{i}")) }
+      10.times { |i| create_token(" USER@example.com", "wrong", request: graphql_request(remote_addr: "10.0.0.1")) }
 
-      error = create_token("user@example.com", "password123", request: graphql_request(remote_addr: "10.0.1.1"))["errors"].first
+      travel 2.minutes do
+        error = create_token("user@example.com", "password123", request: graphql_request(remote_addr: "10.0.0.1"))["errors"].first
 
-      assert_equal "RATE_LIMITED", error.dig("extensions", "code")
+        assert_equal "RATE_LIMITED", error.dig("extensions", "code")
+      end
+    end
+
+    def test_create_token_lets_the_user_sign_in_from_another_ip_while_an_email_is_attacked
+      user = User.create!(email: "user@example.com", password: "password123")
+      11.times { |i| create_token(" USER@example.com", "wrong", request: graphql_request(remote_addr: "10.0.0.#{i}")) }
+
+      token = create_token("user@example.com", "password123", request: graphql_request(remote_addr: "10.0.1.1")).dig("data", "createToken")
+
+      assert_equal user, Token.verify(token)
+    end
+
+    def test_create_token_logs_the_email_and_ip_when_limited
+      User.create!(email: "user@example.com", password: "password123")
+      output = StringIO.new
+      logger = ActiveSupport::Logger.new(output)
+      logger.formatter = ->(severity, _time, _progname, msg) { "#{severity} #{msg}\n" }
+      Rails.logger.broadcast_to(logger)
+
+      10.times { create_token("user@example.com", "wrong", request: graphql_request(remote_addr: "10.0.0.7")) }
+      travel 2.minutes do
+        create_token("user@example.com", "wrong", request: graphql_request(remote_addr: "10.0.0.7"))
+      end
+
+      assert_includes output.string, "WARN #{AuthLog.body("rate_limited", limit: "create_token:email", key: "user@example.com 10.0.0.7", count: 11, to: 10)}\n"
+    ensure
+      Rails.logger.stop_broadcasting_to(logger)
     end
 
     def test_create_token_allows_other_emails_after_an_email_is_limited
