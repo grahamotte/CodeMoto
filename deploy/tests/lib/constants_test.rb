@@ -61,6 +61,19 @@ class ConstantsTest < Minitest::Test
     assert_raises(KeyError) { Constants.server_env }
   end
 
+  def test_ssh_host_key_derives_its_public_key
+    assert_equal DeployTestHostKey.private_key, Constants.ssh_host_key
+    assert_equal DeployTestHostKey.public_key, Constants.ssh_host_key_pub
+  end
+
+  def test_ssh_known_hosts_path_holds_only_the_pinned_host_key
+    path = Constants.ssh_known_hosts_path
+
+    assert_equal File.join(@deploy_test_dir, "known_hosts"), path
+    assert_equal "example.com #{DeployTestHostKey.public_key}\n", File.read(path)
+    assert_equal 0600, File.stat(path).mode & 0777
+  end
+
   def test_ssh_key_decodes_its_base64_value
     previous = ENV["DEPLOY_SSH_KEY_BASE64"]
     ENV["DEPLOY_SSH_KEY_BASE64"] = [ "-----BEGIN KEY-----\nbody\n-----END KEY-----\n" ].pack("m0")

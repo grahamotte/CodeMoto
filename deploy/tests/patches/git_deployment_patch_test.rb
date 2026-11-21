@@ -14,6 +14,9 @@ class GitDeploymentPatchTest < Minitest::Test
     assert_includes local, "git fetch origin master"
     assert_includes local, "git rev-parse origin/master"
     assert local.any? { |command| command.end_with?("git push --force deployment abc123:refs/heads/master") }
+    pushes = local.select { |command| command.include?("GIT_SSH_COMMAND=") }
+    refute_empty pushes
+    assert pushes.all? { |command| command.start_with?("GIT_SSH_COMMAND=#{Shellwords.escape(Cmd.ssh_command)} ") }
     refute local.any? { |command| command.include?("git push deployment master") }
     assert_includes remote, "sudo mkdir -p /var/www/example.com"
     assert_includes remote, "sudo chown deploy:deploy /var/www/example.com"
@@ -36,8 +39,8 @@ class GitDeploymentPatchTest < Minitest::Test
 
     GitDeploymentPatch.always
 
-    assert_includes local, "ssh-keygen -R 1.2.3.4"
-    assert_includes local, "ssh-keyscan -H 1.2.3.4 >> ~/.ssh/known_hosts"
+    refute local.any? { |command| command.include?("ssh-keyscan") || command.include?("ssh-keygen") }
+    assert_includes local, "rsync -av -e #{Shellwords.escape(Cmd.ssh_command)} #{Constants.local_git_dir}/ deploy@1.2.3.4:#{Constants.remote_git_dir}/"
     assert local.any? { |command| command.include?("git clone --bare #{Constants.local_root}") }
     assert remote.any? { |command| command == "git clone #{Constants.remote_git_dir} #{Constants.remote_root}" }
   end

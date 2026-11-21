@@ -51,12 +51,27 @@ class SpawnCredentials
 
       public_key = File.read("#{private_key_path}.pub").strip
 
+      host_key_path = File.join(directory, "ssh_host_ed25519_key")
+      @shell.run(
+        "ssh-keygen",
+        "-t",
+        "ed25519",
+        "-N",
+        "",
+        "-C",
+        "",
+        "-f",
+        host_key_path,
+        "-q",
+      )
+
       {
         "DEPLOY_USER" => "deploy",
         "DEPLOY_PASSWORD" => @random.hex(16),
         "DEPLOY_SSH_KEY_PUB" => public_key,
         "DEPLOY_SSH_KEY_FINGERPRINT" => fingerprint(public_key),
         "DEPLOY_SSH_KEY_BASE64" => [ File.read(private_key_path) ].pack("m0"),
+        "DEPLOY_SSH_KEY_HOST_BASE64" => [ File.read(host_key_path) ].pack("m0"),
         "JWT_SECRET" => @random.hex(64),
         "SECRET_KEY_BASE" => @random.hex(64),
         "CRYPT_KEY" => @random.hex(64),
@@ -86,6 +101,7 @@ class Spawner
       DEPLOY_PASSWORD
       DEPLOY_SSH_KEY_BASE64
       DEPLOY_SSH_KEY_FINGERPRINT
+      DEPLOY_SSH_KEY_HOST_BASE64
       DEPLOY_SSH_KEY_PUB
       DEPLOY_USER
       JWT_SECRET

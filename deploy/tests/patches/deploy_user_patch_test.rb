@@ -27,7 +27,7 @@ class DeployUserPatchTest < Minitest::Test
     )
     Cmd.expects(:ssh_write).with("/home/deploy/.ssh/id_rsa", anything, user: "root").never
     Cmd.expects(:ssh_write).with("/home/deploy/.ssh/id_rsa.pub", "public-key", user: "root")
-    Cmd.expects(:ssh_write).with("/etc/ssh/sshd_config", includes("PermitRootLogin no"), user: "root")
+    Cmd.expects(:ssh_write).with("/etc/ssh/sshd_config", all_of(includes("PermitRootLogin no"), includes("HostKey /etc/ssh/ssh_host_ed25519_key\n")), user: "root")
     Cmd.expects(:ssh).with("systemctl restart ssh", user: "root")
 
     DeployUserPatch.apply

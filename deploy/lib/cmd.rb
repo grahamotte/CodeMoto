@@ -22,7 +22,7 @@ class Cmd
       res
     end
 
-    def ssh(command, *opts, user: Constants.deploy_user, quiet: false, stdin: nil, out: $stdout, err: $stdout)
+    def ssh(command, *opts, user: Constants.deploy_user, quiet: false, stdin: nil, out: $stdout, err: $stdout, host_key: :pinned)
       command = command.split("?").zip(opts.map { |x| Shellwords.escape(x) }).flatten.join if opts.present?
       command = command.gsub("\\*", "*")
 
@@ -31,7 +31,7 @@ class Cmd
       text = +""
       code = 0
 
-      Net::SSH.start(Instance.ip, user, keys: [ Constants.ssh_key_path ], keys_only: true) do |s|
+      Net::SSH.start(Instance.ip, user, **ssh_connection_options(host_key)) do |s|
         s.open_channel do |channel|
           channel.exec(command) do
             if stdin.present?
@@ -64,7 +64,31 @@ class Cmd
       Cache.set(path, digest)
     end
 
+    def ssh_options
+      [
+        "-i", Constants.ssh_key_path,
+        "-o", "IdentitiesOnly=yes",
+        "-o", "StrictHostKeyChecking=yes",
+        "-o", "UserKnownHostsFile=#{Constants.ssh_known_hosts_path}",
+        "-o", "GlobalKnownHostsFile=/dev/null",
+        "-o", "HostKeyAlias=#{Constants.domain}",
+      ]
+    end
+
+    def ssh_command = Shellwords.join([ "ssh", *ssh_options ])
+
     private
+
+    def ssh_connection_options(host_key)
+      options = { keys: [ Constants.ssh_key_path ], keys_only: true, verify_host_key: :always }
+      return options if host_key == :known_hosts
+
+      options.merge(
+        host_key_alias: Constants.domain,
+        user_known_hosts_file: [ Constants.ssh_known_hosts_path ],
+        global_known_hosts_file: [],
+      )
+    end
 
     def command_succeeded?
       Process.last_status.blank? || Process.last_status.success?
