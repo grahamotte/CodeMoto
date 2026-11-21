@@ -15,7 +15,7 @@ module Types
     def create_token(email:, password:)
       request = context[:request]
       if RateLimit.exceeded?("create_token", by: request.remote_ip, to: 10, within: 1.minute) ||
-          RateLimit.exceeded?("create_token:email", by: User.normalize_value_for(:email, email), to: 10, within: 15.minutes)
+          RateLimit.exceeded?("create_token:email", by: "#{User.normalize_value_for(:email, email)} #{request.remote_ip}", to: 10, within: 15.minutes)
         raise GraphQL::ExecutionError.new("too many attempts", extensions: { code: "RATE_LIMITED" })
       end
 
